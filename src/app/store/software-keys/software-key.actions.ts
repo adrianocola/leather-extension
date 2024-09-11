@@ -9,7 +9,7 @@ import {
 
 import { decryptMnemonic, encryptMnemonic } from '@shared/crypto/mnemonic-encryption';
 import { logger } from '@shared/logger';
-import { defaultWalletKeyId } from '@shared/utils';
+import { WalletKeyIds } from '@shared/utils';
 import { identifyUser } from '@shared/utils/analytics';
 
 import { recurseAccountsForActivity } from '@app/common/account-restoration/account-restore';
@@ -24,14 +24,17 @@ import { getStacksAddressByIndex } from '../accounts/blockchain/stacks/stacks-ke
 import { stxChainSlice } from '../chains/stx-chain.slice';
 import { selectDefaultWalletKey } from '../in-memory-key/in-memory-key.selectors';
 import { inMemoryKeySlice } from '../in-memory-key/in-memory-key.slice';
-import { selectDefaultSoftwareKey } from './software-key.selectors';
+import { selectSoftwareKey } from './software-key.selectors';
 import { keySlice } from './software-key.slice';
 
-function setWalletEncryptionPassword(args: {
-  password: string;
-  stxClient: StacksClient;
-  btcClient: BitcoinClient;
-}): AppThunk {
+function setWalletEncryptionPassword(
+  keyId: WalletKeyIds,
+  args: {
+    password: string;
+    stxClient: StacksClient;
+    btcClient: BitcoinClient;
+  }
+): AppThunk {
   const { password, stxClient, btcClient } = args;
 
   return async (dispatch, getState) => {
@@ -104,7 +107,7 @@ function setWalletEncryptionPassword(args: {
     dispatch(
       keySlice.actions.createSoftwareWalletComplete({
         type: 'software',
-        id: defaultWalletKeyId,
+        id: keyId,
         salt,
         encryptedSecretKey,
       })
@@ -114,9 +117,9 @@ function setWalletEncryptionPassword(args: {
   };
 }
 
-function unlockWalletAction(password: string): AppThunk {
+function unlockWalletAction(keyId: WalletKeyIds, password: string): AppThunk {
   return async (dispatch, getState) => {
-    const currentKey = selectDefaultSoftwareKey(getState());
+    const currentKey = selectSoftwareKey(getState(), keyId);
     if (!currentKey) return;
     if (currentKey.type !== 'software') return;
     const { secretKey, encryptionKey } = await decryptMnemonic({ password, ...currentKey });

@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { SettingsSelectors } from '@tests/selectors/settings.selectors';
 import { css } from 'leather-styles/css';
 import { Flex, Stack, styled } from 'leather-styles/jsx';
 
+import { useBitcoinClient } from '@leather.io/query';
 import {
   ArrowsRepeatLeftRightIcon,
   Caption,
@@ -17,11 +18,13 @@ import {
   KeyIcon,
   LockIcon,
   MegaphoneIcon,
+  PassportIcon,
   SunInCloudIcon,
   SupportIcon,
 } from '@leather.io/ui';
 
 import { RouteUrls } from '@shared/route-urls';
+import { WalletKeyIds } from '@shared/utils';
 import { analytics } from '@shared/utils/analytics';
 
 import { useHasKeys } from '@app/common/hooks/auth/use-has-keys';
@@ -35,8 +38,12 @@ import { Divider } from '@app/components/layout/divider';
 import { NetworkSheet } from '@app/features/settings/network/network';
 import { SignOut } from '@app/features/settings/sign-out/sign-out-confirm';
 import { ThemeSheet } from '@app/features/settings/theme/theme-dialog';
+import { useAppDispatch } from '@app/store';
+import { useStacksClient } from '@app/store/common/api-clients.hooks';
 import { useLedgerDeviceTargetId } from '@app/store/ledger/ledger.selectors';
 import { useCurrentNetworkId } from '@app/store/networks/networks.selectors';
+import { keyActions } from '@app/store/software-keys/software-key.actions';
+import { useCurrentKeyDetails } from '@app/store/software-keys/software-key.selectors';
 
 import { openFeedbackSheet } from '../feedback-button/feedback-button';
 import { extractDeviceNameFromKnownTargetIds } from '../ledger/utils/generic-ledger-utils';
@@ -56,6 +63,10 @@ export function Settings({
   const [showSignOut, setShowSignOut] = useState(false);
   const [showChangeTheme, setShowChangeTheme] = useState(false);
   const [showChangeNetwork, setShowChangeNetwork] = useState(false);
+  const defaultKeyDetails = useCurrentKeyDetails();
+  const dispatch = useAppDispatch();
+  const btcClient = useBitcoinClient();
+  const stxClient = useStacksClient();
 
   const { hasKeys, hasLedgerKeys } = useHasKeys();
 
@@ -103,6 +114,47 @@ export function Settings({
       ].filter(Boolean),
     [canLockWallet, hasKeys, lockWallet, navigate, showAdvancedMenuOptions, showSignOut, walletType]
   );
+
+  const configurePasskeys = useCallback(async () => {
+    try {
+      const credential = (await navigator.credentials.create({
+        publicKey: {
+          challenge: Uint8Array.from(defaultKeyDetails.encryptedSecretKey, c => c.charCodeAt(0)),
+          rp: {
+            name: 'Leather',
+          },
+          user: {
+            id: Uint8Array.from('leather', c => c.charCodeAt(0)),
+            name: 'Leather Extension',
+            displayName: 'Leather Extension',
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: 'public-key' },
+            { alg: -8, type: 'public-key' },
+            { alg: -257, type: 'public-key' },
+          ],
+          timeout: 60000,
+        },
+      })) as PublicKeyCredential;
+
+      if (!credential) return;
+
+      const encodedChallenge = JSON.parse(
+        new TextDecoder().decode(credential.response.clientDataJSON)
+      ).challenge;
+
+      dispatch(
+        keyActions.setWalletEncryptionPassword(WalletKeyIds.PASSKEY, {
+          password: encodedChallenge,
+          stxClient,
+          btcClient,
+        })
+      );
+      alert('Passkey configured successfully');
+    } catch (e) {
+      alert(`Error configuring passkeys: ${(e as Error).message}`);
+    }
+  }, [defaultKeyDetails, dispatch, stxClient, btcClient]);
 
   return (
     <>
@@ -186,6 +238,14 @@ export function Settings({
                 <Flag img={<SunInCloudIcon />}>
                   <Flex justifyContent="space-between" textStyle="label.02">
                     Change theme
+                  </Flex>
+                </Flag>
+              </DropdownMenu.Item>
+
+              <DropdownMenu.Item onSelect={configurePasskeys}>
+                <Flag img={<PassportIcon />}>
+                  <Flex justifyContent="space-between" textStyle="label.02">
+                    Configure Passkeys
                   </Flex>
                 </Flag>
               </DropdownMenu.Item>

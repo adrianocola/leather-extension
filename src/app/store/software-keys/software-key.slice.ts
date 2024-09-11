@@ -1,16 +1,16 @@
 import { PayloadAction, createEntityAdapter, createSlice } from '@reduxjs/toolkit';
 
-import { defaultWalletKeyId } from '@shared/utils';
+import { WalletKeyIds } from '@shared/utils';
 
 import { migrateVaultReducerStoreToNewStateStructure } from '../utils/vault-reducer-migration';
 
 interface KeyConfig {
   type: 'software';
-  id: 'default';
+  id: WalletKeyIds;
   encryptedSecretKey: string;
   salt: string;
 }
-const keyAdapter = createEntityAdapter<KeyConfig>();
+export const keyAdapter = createEntityAdapter<KeyConfig>();
 
 export const initialKeysState = keyAdapter.getInitialState();
 
@@ -23,7 +23,7 @@ export const keySlice = createSlice({
     },
 
     signOut(state) {
-      keyAdapter.removeOne(state as any, defaultWalletKeyId);
+      keyAdapter.removeAll(state as any);
     },
 
     debugKillStacks() {

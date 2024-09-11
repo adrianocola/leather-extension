@@ -8,6 +8,7 @@ import { logger } from '@shared/logger';
 import { InternalMethods } from '@shared/message-types';
 import { sendMessage } from '@shared/messages';
 import { clearChromeStorage } from '@shared/storage/redux-pesist';
+import { WalletKeyIds } from '@shared/utils';
 import { analytics } from '@shared/utils/analytics';
 
 import { queryClient } from '@app/common/persistence';
@@ -32,7 +33,13 @@ export function useKeyActions() {
   return useMemo(
     () => ({
       async setPassword(password: string) {
-        return dispatch(keyActions.setWalletEncryptionPassword({ password, stxClient, btcClient }));
+        return dispatch(
+          keyActions.setWalletEncryptionPassword(WalletKeyIds.DEFAULT, {
+            password,
+            stxClient,
+            btcClient,
+          })
+        );
       },
 
       generateWalletKey() {
@@ -45,7 +52,11 @@ export function useKeyActions() {
       },
 
       async unlockWallet(password: string) {
-        return dispatch(keyActions.unlockWalletAction(password));
+        return dispatch(keyActions.unlockWalletAction(WalletKeyIds.DEFAULT, password));
+      },
+
+      async unlockWalletPasskey(password: string) {
+        return dispatch(keyActions.unlockWalletAction(WalletKeyIds.PASSKEY, password));
       },
 
       switchAccount(accountIndex: number) {

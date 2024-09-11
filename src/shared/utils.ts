@@ -4,6 +4,11 @@ import { logger } from './logger';
 
 export const defaultWalletKeyId = 'default';
 
+export enum WalletKeyIds {
+  DEFAULT = 'default',
+  PASSKEY = 'passkey',
+}
+
 export function closeWindow() {
   if (process.env.DEBUG_PREVENT_WINDOW_CLOSE === 'true') {
     logger.warn('Prevented window close with flag DEBUG_PREVENT_WINDOW_CLOSE');
